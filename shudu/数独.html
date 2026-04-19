@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>数独生成器</title>
+    <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px;
+        overflow-x: hidden;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 500px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        text-align: center;
+        color: #333;
+        margin: 10px 0;
+        font-size: 1.4rem;
+        font-weight: bold;
+    }
+
+    /* 控制按钮区域 */
+    .controls-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 6px;
+        flex: 1;
+    }
+
+    button {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background-color: #4CAF50; /* 统一绿色 */
+        color: white;
+        min-width: 70px;
+        height: 30px;
+        line-height: 1;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
+
+    /* 删除按钮样式 */
+    .delete-btn {
+        background-color: #f44336;
+    }
+
+    .delete-btn:hover {
+        background-color: #da190b;
+    }
+
+    /* 笔记按钮样式 - 使用深浅对比表示状态 */
+    .notes-btn {
+        background-color: #2E7D32; /* 深绿色 */
+    }
+
+    .notes-btn.active {
+        background-color: #4CAF50; /* 正常绿色 */
+    }
+
+    /* 数字助手按钮样式 - 使用深浅对比表示状态 */
+    .helper-btn {
+        background-color: #2E7D32; /* 深绿色 */
+    }
+
+    .helper-btn.active {
+        background-color: #4CAF50; /* 正常绿色 */
+    }
+
+    /* 清空按钮样式 */
+    .clear-btn {
+        background-color: #4CAF50;
+    }
+
+    .clear-btn:hover {
+        background-color: #45a049;
+    }
+
+    /* 求解按钮样式 */
+    .solve-btn {
+        background-color: #4CAF50;
+    }
+
+    .solve-btn:hover {
+        background-color: #45a049;
+    }
+
+    /* 难度选择 */
+    .difficulty-container {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 30px;
+    }
+
+    .difficulty-container label {
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .difficulty-container select {
+        padding: 4px 6px;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        height: 100%;
+        min-width: 60px;
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    /* 数独网格 */
+    .sudoku-container {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        margin: 10px 0;
+        position: relative;
+    }
+
+    .sudoku-grid {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+        gap: 1px;
+        background-color: #000;
+        border: 2px solid #000;
+        width: 100%;
+        aspect-ratio: 1/1;
+        max-width: 100%;
+        max-height: calc(100vh - 260px);
+        min-width: 200px;
+        min-height: 200px;
+    }
+
+    .cell {
+        position: relative;
+        background-color: #ffffff; /* 白色背景 */
+        cursor: pointer;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cell.fixed {
+        background-color: #e0e0e0;
+    }
+
+    .cell.user-input {
+        background-color: #f0f8ff;
+    }
+
+    .cell.selected {
+        background-color: #d0e0ff !important;
+    }
+
+    .cell.error {
+        color: red;
+        background-color: #ffe6e6 !important;
+    }
+
+    /* 数字助手相关样式 - 蓝色调 */
+    .cell.highlighted-row {
+        background-color: #b3d9ff !important; /* 更蓝色 */
+    }
+
+    .cell.highlighted-col {
+        background-color: #b3d9ff !important; /* 更蓝色 */
+    }
+
+    .cell.highlighted-box {
+        background-color: #b3d9ff !important; /* 更蓝色 */
+    }
+
+    .cell.highlighted-number {
+        background-color: #cceeff !important; /* 更蓝色 */
+        font-weight: bold;
+    }
+
+    /* 宫格分隔线 */
+    .cell:nth-child(3n):not(:nth-child(9n)) {
+        border-right: 2px solid #000;
+    }
+
+    .cell:nth-child(n+19):nth-child(-n+27),
+    .cell:nth-child(n+46):nth-child(-n+54) {
+        border-bottom: 2px solid #000;
+    }
+
+    /* 笔记容器 */
+    .notes-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        pointer-events: none;
+    }
+
+    /* 笔记数字样式 */
+    .note-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.5rem;
+        color: #666;
+        font-weight: normal;
+        cursor: default;
+        user-select: none;
+        padding: 1px;
+    }
+
+    /* 主数字样式 */
+    .main-number {
+        font-size: 1.1rem;
+        font-weight: bold;
+        z-index: 1;
+        position: relative;
+    }
+
+    /* 数字输入栏 */
+    .number-pad {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 4px;
+        width: 100%;
+        margin: 12px 0;
+        padding: 0 2px;
+    }
+
+    .number-btn {
+        width: 100%;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #4CAF50;
+        color: white;
+        font-size: 0.8rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        box-sizing: border-box;
+        padding: 0;
+        line-height: 1;
+        min-width: 28px;
+        min-height: 28px;
+    }
+
+    .number-btn.delete-btn {
+        background-color: #f44336;
+    }
+
+    .number-btn.delete-btn:hover {
+        background-color: #da190b;
+    }
+
+    .number-btn:hover {
+        background-color: #45a049;
+    }
+
+    .number-btn:active {
+        background-color: #3d8b40;
+    }
+
+    .status {
+        text-align: center;
+        margin: 8px 0;
+        font-size: 0.85rem;
+        color: #333;
+        width: 100%;
+        min-height: 1.2em;
+    }
+
+    /* You Win 覆盖层样式 */
+    .win-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(128, 128, 128, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    .win-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .win-text {
+        color: white;
+        font-size: 2rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        animation: celebrate 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes celebrate {
+        from { transform: scale(1); }
+        to { transform: scale(1.1); }
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 400px) {
+        .controls-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .btn-group {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .difficulty-container {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .sudoku-grid {
+            max-height: calc(100vh - 280px);
+            min-width: 180px;
+            min-height: 180px;
+        }
+
+        .cell {
+            font-size: 0.9rem;
+        }
+
+        .note-number {
+            font-size: 0.4rem;
+        }
+
+        .number-pad {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .number-btn {
+            min-width: 24px;
+            min-height: 24px;
+            font-size: 0.7rem;
+        }
+
+        .win-text {
+            font-size: 1.5rem;
+        }
+    }
+
+    html, body {
+        overflow: hidden;
+    }
+
+    .content-wrapper {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>数独生成器</h1>
+
+        <div class="controls-row">
+            <div class="btn-group">
+                <button id="generateBtn">新数独</button>
+                <button id="solveBtn" class="solve-btn">原数独</button>
+            </div>
+            <div class="difficulty-container">
+                <label for="difficulty">难度:</label>
+                <select id="difficulty">
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                    <option value="4">专家</option>
+                    <option value="5">极限</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <div class="btn-group">
+                <button id="clearBtn" class="clear-btn">清空</button>
+                <button id="notesBtn" class="notes-btn">笔记</button>
+                <button id="helperBtn" class="helper-btn">数字助手</button>
+            </div>
+        </div>
+
+        <div class="sudoku-container">
+            <div class="sudoku-grid" id="sudokuGrid"></div>
+            <div class="win-overlay" id="winOverlay">
+                <div class="win-text">You Win!</div>
+            </div>
+        </div>
+
+        <div class="number-pad" id="numberPad">
+            <button class="number-btn" data-number="1">1</button>
+            <button class="number-btn" data-number="2">2</button>
+            <button class="number-btn" data-number="3">3</button>
+            <button class="number-btn" data-number="4">4</button>
+            <button class="number-btn" data-number="5">5</button>
+            <button class="number-btn" data-number="6">6</button>
+            <button class="number-btn" data-number="7">7</button>
+            <button class="number-btn" data-number="8">8</button>
+            <button class="number-btn" data-number="9">9</button>
+            <button class="number-btn delete-btn" data-number="0">删除</button>
+        </div>
+
+        <div class="status" id="status">已生成难度为中等的数独题目</div>
+    </div>
+
+    <script>
+        class SudokuGenerator {
+            constructor() {
+                this.grid = Array(9).fill().map(() => Array(9).fill(0));
+                this.solutionCount = 0;
+                this.maxSolutions = 2;
+            }
+
+            isValid(row, col, num) {
+                for (let j = 0; j < 9; j++) {
+                    if (this.grid[row][j] === num) return false;
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (this.grid[i][col] === num) return false;
+                }
+                const startRow = Math.floor(row / 3) * 3;
+                const startCol = Math.floor(col / 3) * 3;
+                for (let i = startRow; i < startRow + 3; i++) {
+                    for (let j = startCol; j < startCol + 3; j++) {
+                        if (this.grid[i][j] === num) return false;
+                    }
+                }
+                return true;
+            }
+
+            getValidNumbers(row, col) {
+                const valid = new Set();
+                for (let num = 1; num <= 9; num++) {
+                    if (this.isValid(row, col, num)) {
+                        valid.add(num);
+                    }
+                }
+                return valid;
+            }
+
+            getNextEmptyCell() {
+                let minOptions = 10;
+                let nextRow = -1;
+                let nextCol = -1;
+
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (this.grid[i][j] === 0) {
+                            const options = this.getValidNumbers(i, j);
+                            if (options.size < minOptions) {
+                                minOptions = options.size;
+                                nextRow = i;
+                                nextCol = j;
+                            }
+                        }
+                    }
+                }
+                return [nextRow, nextCol];
+            }
+
+            generateCompleteGrid() {
+                const [row, col] = this.getNextEmptyCell();
+                if (row === -1) return true;
+
+                const validNumbers = Array.from(this.getValidNumbers(row, col));
+                this.shuffleArray(validNumbers);
+
+                for (const num of validNumbers) {
+                    this.grid[row][col] = num;
+                    if (this.generateCompleteGrid()) return true;
+                    this.grid[row][col] = 0;
+                }
+                return false;
+            }
+
+            shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            resetGrid() {
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        this.grid[i][j] = 0;
+                    }
+                }
+            }
+
+            generateCompleteSudoku() {
+                this.resetGrid();
+                this.generateCompleteGrid();
+                return JSON.parse(JSON.stringify(this.grid));
+            }
+
+            isValidInPuzzle(puzzleGrid, row, col, num) {
+                for (let j = 0; j < 9; j++) {
+                    if (puzzleGrid[row][j] === num && puzzleGrid[row][j] !== 0) return false;
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (puzzleGrid[i][col] === num && puzzleGrid[i][col] !== 0) return false;
+                }
+                const startRow = Math.floor(row / 3) * 3;
+                const startCol = Math.floor(col / 3) * 3;
+                for (let i = startRow; i < startRow + 3; i++) {
+                    for (let j = startCol; j < startCol + 3; j++) {
+                        if (puzzleGrid[i][j] === num && puzzleGrid[i][j] !== 0) return false;
+                    }
+                }
+                return true;
+            }
+
+            countSolutions(puzzleGrid, maxSolutions = 2) {
+                let row = -1, col = -1;
+                let isEmpty = false;
+
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (puzzleGrid[i][j] === 0) {
+                            row = i;
+                            col = j;
+                            isEmpty = true;
+                            break;
+                        }
+                    }
+                    if (isEmpty) break;
+                }
+
+                if (!isEmpty) return 1;
+
+                let solutions = 0;
+                for (let num = 1; num <= 9; num++) {
+                    if (this.isValidInPuzzle(puzzleGrid, row, col, num)) {
+                        puzzleGrid[row][col] = num;
+                        solutions += this.countSolutions(puzzleGrid, maxSolutions);
+                        if (solutions >= maxSolutions) {
+                            puzzleGrid[row][col] = 0;
+                            return solutions;
+                        }
+                        puzzleGrid[row][col] = 0;
+                    }
+                }
+                return solutions;
+            }
+
+            hasUniqueSolution(puzzleGrid) {
+                const gridCopy = JSON.parse(JSON.stringify(puzzleGrid));
+                const solutionCount = this.countSolutions(gridCopy, 2);
+                return solutionCount === 1;
+            }
+
+            generatePuzzle(difficultyLevel) {
+                const completeSudoku = this.generateCompleteSudoku();
+                this.solution = JSON.parse(JSON.stringify(completeSudoku));
+
+                let puzzle = JSON.parse(JSON.stringify(completeSudoku));
+
+                let holesToRemove;
+                switch(difficultyLevel) {
+                    case 1: holesToRemove = 40; break;
+                    case 2: holesToRemove = 46; break;
+                    case 3: holesToRemove = 51; break;
+                    case 4: holesToRemove = 56; break;
+                    case 5: holesToRemove = 62; break;
+                    default: holesToRemove = 45;
+                }
+
+                const positions = [];
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        positions.push([i, j]);
+                    }
+                }
+
+                this.shuffleArray(positions);
+
+                let removedCount = 0;
+                for (const [row, col] of positions) {
+                    if (removedCount >= holesToRemove) break;
+
+                    const tempVal = puzzle[row][col];
+                    puzzle[row][col] = 0;
+
+                    const testPuzzle = JSON.parse(JSON.stringify(puzzle));
+
+                    if (this.hasUniqueSolution(testPuzzle)) {
+                        removedCount++;
+                    } else {
+                        puzzle[row][col] = tempVal;
+                    }
+                }
+
+                return puzzle;
+            }
+
+            getSolution() {
+                return JSON.parse(JSON.stringify(this.solution));
+            }
+        }
+
+        class SudokuGame {
+            constructor() {
+                this.generator = new SudokuGenerator();
+                this.currentPuzzle = Array(9).fill().map(() => Array(9).fill(0));
+                this.originalPuzzle = Array(9).fill().map(() => Array(9).fill(0));
+                this.solution = Array(9).fill().map(() => Array(9).fill(0));
+                this.selectedCell = null;
+                this.winOverlay = document.getElementById('winOverlay');
+                this.notesMode = false;
+                this.helperMode = false; // 改名
+                this.highlightedNumber = null;
+                this.notes = Array(9).fill().map(() => Array(9).fill().map(() => new Set()));
+                this.isSolved = false; // 添加标志表示是否已解决
+                this.init();
+            }
+
+            init() {
+                this.createGrid();
+                this.setupNumberPad();
+                this.generateNewPuzzle();
+                this.attachEventListeners();
+            }
+
+            createGrid() {
+                const gridElement = document.getElementById('sudokuGrid');
+                gridElement.innerHTML = '';
+
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = i;
+                        cell.dataset.col = j;
+
+                        // 添加笔记容器（始终存在）
+                        const notesContainer = document.createElement('div');
+                        notesContainer.className = 'notes-container';
+                        cell.appendChild(notesContainer);
+
+                        cell.addEventListener('click', (e) => {
+                            this.selectCell(i, j);
+                        });
+
+                        gridElement.appendChild(cell);
+                    }
+                }
+            }
+
+            setupNumberPad() {
+                const numberPad = document.getElementById('numberPad');
+                const buttons = numberPad.querySelectorAll('.number-btn');
+
+                buttons.forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const number = parseInt(e.target.dataset.number);
+                        this.handleNumberInput(number);
+                    });
+                });
+            }
+
+            attachEventListeners() {
+                document.getElementById('generateBtn').addEventListener('click', () => {
+                    this.generateNewPuzzle();
+                });
+
+                document.getElementById('solveBtn').addEventListener('click', () => {
+                    this.solveCurrentPuzzle();
+                });
+
+                document.getElementById('clearBtn').addEventListener('click', () => {
+                    this.clearUserInput();
+                });
+
+                document.getElementById('notesBtn').addEventListener('click', () => {
+                    this.toggleNotesMode();
+                });
+
+                document.getElementById('helperBtn').addEventListener('click', () => {
+                    this.toggleHelperMode(); // 改名
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (!this.selectedCell) return;
+
+                    if (e.key >= '1' && e.key <= '9') {
+                        const number = parseInt(e.key);
+                        this.handleNumberInput(number);
+                    } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0' || e.key === ' ') {
+                        this.handleNumberInput(0);
+                    } else if (e.key === 'n' || e.key === 'N') {
+                        this.toggleNotesMode();
+                    } else if (e.key === 'h' || e.key === 'H') {
+                        this.toggleHelperMode(); // 改名
+                    }
+                });
+            }
+
+            toggleNotesMode() {
+                this.notesMode = !this.notesMode;
+                const btn = document.getElementById('notesBtn');
+                btn.classList.toggle('active', this.notesMode);
+                btn.textContent = this.notesMode ? '笔记' : '笔记'; // 保持为"笔记"，不切换为"主数字"
+
+                document.getElementById('status').textContent =
+                    this.notesMode ? '已进入笔记模式' : '已退出笔记模式';
+            }
+
+            toggleHelperMode() { // 改名
+                this.helperMode = !this.helperMode;
+                const btn = document.getElementById('helperBtn');
+                btn.classList.toggle('active', this.helperMode);
+
+                if (this.helperMode) {
+                    document.getElementById('status').textContent = '已进入数字助手模式，点击数字查看其约束';
+                } else {
+                    this.clearHighlights();
+                    this.highlightedNumber = null;
+                    document.getElementById('status').textContent = '已退出数字助手模式';
+                }
+            }
+
+            applyHighlights(number) {
+                // 清除之前的高亮
+                this.clearHighlights();
+
+                // 找到所有包含该数字的单元格并高亮
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                        if (cell && (this.currentPuzzle[i][j] === number || this.originalPuzzle[i][j] === number)) {
+                            cell.classList.add('highlighted-number');
+
+                            // 高亮其所在的行、列和宫格
+                            // 行
+                            for (let c = 0; c < 9; c++) {
+                                const rowCell = document.querySelector(`.cell[data-row="${i}"][data-col="${c}"]`);
+                                if (rowCell) rowCell.classList.add('highlighted-row');
+                            }
+
+                            // 列
+                            for (let r = 0; r < 9; r++) {
+                                const colCell = document.querySelector(`.cell[data-row="${r}"][data-col="${j}"]`);
+                                if (colCell) colCell.classList.add('highlighted-col');
+                            }
+
+                            // 宫格
+                            const startRow = Math.floor(i / 3) * 3;
+                            const startCol = Math.floor(j / 3) * 3;
+                            for (let r = startRow; r < startRow + 3; r++) {
+                                for (let c = startCol; c < startCol + 3; c++) {
+                                    const boxCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+                                    if (boxCell) boxCell.classList.add('highlighted-box');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            clearHighlights() {
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.classList.remove('highlighted-row', 'highlighted-col', 'highlighted-box', 'highlighted-number');
+                });
+            }
+
+            selectCell(row, col) {
+                if (this.selectedCell) {
+                    const prevCell = document.querySelector(
+                        `.cell[data-row="${this.selectedCell[0]}"][data-col="${this.selectedCell[1]}"]`
+                    );
+                    if (prevCell) prevCell.classList.remove('selected');
+                }
+
+                this.selectedCell = [row, col];
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+
+                if (this.originalPuzzle[row][col] === 0 && cell) {
+                    cell.classList.add('selected');
+                }
+
+                // 如果处于数字助手模式，且选中的单元格有数字，则高亮该数字的约束
+                if (this.helperMode && this.currentPuzzle[row][col] !== 0) { // 改名
+                    this.applyHighlights(this.currentPuzzle[row][col]);
+                } else if (this.helperMode && this.originalPuzzle[row][col] !== 0) { // 改名
+                    this.applyHighlights(this.originalPuzzle[row][col]);
+                }
+            }
+
+            handleNumberInput(number) {
+                if (!this.selectedCell) return;
+
+                const [row, col] = this.selectedCell;
+
+                if (this.originalPuzzle[row][col] !== 0) return;
+
+                if (this.notesMode) {
+                    this.toggleNote(row, col, number);
+                } else {
+                    this.setMainNumber(row, col, number);
+                }
+
+                this.checkWin();
+            }
+
+            toggleNote(row, col, number) {
+                if (number === 0) {
+                    // 清空所有笔记
+                    this.notes[row][col].clear();
+                    this.updateCellDisplay(row, col);
+                    return;
+                }
+
+                // 切换笔记中的数字
+                if (this.notes[row][col].has(number)) {
+                    this.notes[row][col].delete(number);
+                } else {
+                    this.notes[row][col].add(number);
+                }
+
+                this.updateCellDisplay(row, col);
+            }
+
+            setMainNumber(row, col, number) {
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+
+                if (number === 0) {
+                    // 清空主数字
+                    this.currentPuzzle[row][col] = 0;
+                    this.notes[row][col].clear(); // 同时清空笔记
+                } else {
+                    // 设置主数字
+                    this.currentPuzzle[row][col] = number;
+                    this.notes[row][col].clear(); // 同时清空笔记
+                }
+
+                this.updateCellDisplay(row, col);
+                this.validateInput(row, col);
+
+                // 如果处于数字助手模式，且刚设置了数字，则高亮该数字的约束
+                if (this.helperMode && number !== 0) { // 改名
+                    this.applyHighlights(number);
+                }
+            }
+
+            updateCellDisplay(row, col) {
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                if (!cell) return;
+
+                // 获取笔记容器
+                const notesContainer = cell.querySelector('.notes-container');
+                if (!notesContainer) return;
+
+                // **关键修复：先清理所有现有内容**
+                // 移除所有现有的主数字元素
+                const existingMainNumbers = cell.querySelectorAll('.main-number');
+                existingMainNumbers.forEach(el => el.remove());
+
+                // 清空笔记容器
+                notesContainer.innerHTML = '';
+
+                // 如果有主数字
+                if (this.currentPuzzle[row][col] !== 0) {
+                    const mainNumber = document.createElement('div');
+                    mainNumber.className = 'main-number';
+                    mainNumber.textContent = this.currentPuzzle[row][col];
+                    cell.appendChild(mainNumber);
+                }
+                // 如果有笔记且没有主数字
+                else if (this.notes[row][col].size > 0) {
+                    for (const noteNum of this.notes[row][col]) {
+                        const noteElement = document.createElement('div');
+                        noteElement.className = 'note-number';
+
+                        // 计算位置：1-9对应3x3网格
+                        const pos = noteNum - 1;
+                        const rowPos = Math.floor(pos / 3);
+                        const colPos = pos % 3;
+
+                        noteElement.style.gridColumn = colPos + 1;
+                        noteElement.style.gridRow = rowPos + 1;
+                        noteElement.textContent = noteNum;
+
+                        notesContainer.appendChild(noteElement);
+                    }
+                }
+            }
+
+            validateInput(row, col) {
+                // 清除之前可能的错误标记
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                if (cell) {
+                    cell.classList.remove('error');
+                }
+
+                // 只检查用户输入的数字
+                if (this.currentPuzzle[row][col] === 0) {
+                    return;
+                }
+
+                // 检查行是否有重复
+                for (let j = 0; j < 9; j++) {
+                    if (j !== col &&
+                        this.currentPuzzle[row][j] !== 0 &&
+                        this.currentPuzzle[row][j] === this.currentPuzzle[row][col]) {
+                        // 标记错误单元格
+                        const errorCell = document.querySelector(`.cell[data-row="${row}"][data-col="${j}"]`);
+                        if (errorCell && !this.originalPuzzle[row][j]) {
+                            errorCell.classList.add('error');
+                        }
+                        if (cell) cell.classList.add('error');
+                    }
+                }
+
+                // 检查列是否有重复
+                for (let i = 0; i < 9; i++) {
+                    if (i !== row &&
+                        this.currentPuzzle[i][col] !== 0 &&
+                        this.currentPuzzle[i][col] === this.currentPuzzle[row][col]) {
+                        // 标记错误单元格
+                        const errorCell = document.querySelector(`.cell[data-row="${i}"][data-col="${col}"]`);
+                        if (errorCell && !this.originalPuzzle[i][col]) {
+                            errorCell.classList.add('error');
+                        }
+                        if (cell) cell.classList.add('error');
+                    }
+                }
+
+                // 检查3x3宫是否有重复
+                const startRow = Math.floor(row / 3) * 3;
+                const startCol = Math.floor(col / 3) * 3;
+
+                for (let i = startRow; i < startRow + 3; i++) {
+                    for (let j = startCol; j < startCol + 3; j++) {
+                        if ((i !== row || j !== col) &&
+                            this.currentPuzzle[i][j] !== 0 &&
+                            this.currentPuzzle[i][j] === this.currentPuzzle[row][col]) {
+                            // 标记错误单元格
+                            const errorCell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                            if (errorCell && !this.originalPuzzle[i][j]) {
+                                errorCell.classList.add('error');
+                            }
+                            if (cell) cell.classList.add('error');
+                        }
+                    }
+                }
+            }
+
+            updateSolutionErrors() {
+                // 清除所有错误标记
+                const allCells = document.querySelectorAll('.cell');
+                allCells.forEach(cell => cell.classList.remove('error'));
+
+                // 重新验证所有用户输入的数字
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (this.originalPuzzle[i][j] === 0 && this.currentPuzzle[i][j] !== 0) {
+                            this.validateInput(i, j);
+                        }
+                    }
+                }
+            }
+
+            checkWin() {
+                // 如果已经解决了，就不再检查
+                if (this.isSolved) return;
+
+                let hasError = false;
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (this.originalPuzzle[i][j] === 0) {
+                            if (this.currentPuzzle[i][j] === 0) {
+                                this.hideWinMessage();
+                                return;
+                            }
+                            if (this.currentPuzzle[i][j] !== this.solution[i][j]) {
+                                hasError = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!hasError) {
+                    this.showWinMessage();
+                } else {
+                    this.hideWinMessage();
+                }
+            }
+
+            showWinMessage() {
+                this.isSolved = true;
+                this.winOverlay.classList.add('show');
+                document.getElementById('status').textContent = '恭喜！数独已完成！';
+            }
+
+            hideWinMessage() {
+                this.winOverlay.classList.remove('show');
+            }
+
+            generateNewPuzzle() {
+                const difficulty = parseInt(document.getElementById('difficulty').value);
+                this.currentPuzzle = this.generator.generatePuzzle(difficulty);
+                this.originalPuzzle = JSON.parse(JSON.stringify(this.currentPuzzle));
+                this.solution = this.generator.getSolution();
+
+                // 重置笔记数据
+                this.notes = Array(9).fill().map(() => Array(9).fill().map(() => new Set()));
+
+                this.selectedCell = null;
+                this.isSolved = false; // 重置解决状态
+                this.updateGridDisplay();
+                this.hideWinMessage();
+
+                // 退出数字助手模式
+                this.helperMode = false; // 改名
+                this.highlightedNumber = null;
+                const btn = document.getElementById('helperBtn');
+                btn.classList.remove('active');
+
+                document.getElementById('status').textContent = `已生成难度为${this.getDifficultyText(difficulty)}的数独题目`;
+            }
+
+            getDifficultyText(level) {
+                const texts = ['简单', '中等', '困难', '专家', '极限'];
+                return texts[level - 1] || '中等';
+            }
+
+            updateGridDisplay() {
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                        if (!cell) continue;
+
+                        // **关键修复：每次更新前清理所有内容**
+                        // 移除所有现有的主数字
+                        const existingMainNumbers = cell.querySelectorAll('.main-number');
+                        existingMainNumbers.forEach(el => el.remove());
+
+                        // 获取或创建笔记容器
+                        let notesContainer = cell.querySelector('.notes-container');
+                        if (!notesContainer) {
+                            notesContainer = document.createElement('div');
+                            notesContainer.className = 'notes-container';
+                            cell.appendChild(notesContainer);
+                        }
+
+                        // 清空笔记容器
+                        notesContainer.innerHTML = '';
+
+                        cell.classList.remove('selected', 'error', 'highlighted-row', 'highlighted-col', 'highlighted-box', 'highlighted-number');
+
+                        if (this.originalPuzzle[i][j] !== 0) {
+                            // 固定数字
+                            const mainNumber = document.createElement('div');
+                            mainNumber.className = 'main-number';
+                            mainNumber.textContent = this.originalPuzzle[i][j];
+                            cell.appendChild(mainNumber);
+                            cell.className = 'cell fixed';
+                        } else {
+                            // 用户输入区域
+                            if (this.currentPuzzle[i][j] !== 0) {
+                                // 主数字
+                                const mainNumber = document.createElement('div');
+                                mainNumber.className = 'main-number';
+                                mainNumber.textContent = this.currentPuzzle[i][j];
+                                cell.appendChild(mainNumber);
+                                cell.className = 'cell user-input';
+                            } else if (this.notes[i][j].size > 0) {
+                                // 笔记
+                                for (const noteNum of this.notes[i][j]) {
+                                    const noteElement = document.createElement('div');
+                                    noteElement.className = 'note-number';
+
+                                    const pos = noteNum - 1;
+                                    const rowPos = Math.floor(pos / 3);
+                                    const colPos = pos % 3;
+
+                                    noteElement.style.gridColumn = colPos + 1;
+                                    noteElement.style.gridRow = rowPos + 1;
+                                    noteElement.textContent = noteNum;
+
+                                    notesContainer.appendChild(noteElement);
+                                }
+                                cell.className = 'cell user-input';
+                            } else {
+                                cell.className = 'cell user-input';
+                            }
+                        }
+                    }
+                }
+
+                // 重新验证所有输入
+                this.updateSolutionErrors();
+            }
+
+            solveCurrentPuzzle() {
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (this.originalPuzzle[i][j] === 0) {
+                            const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                            if (cell) {
+                                // 清空笔记
+                                this.notes[i][j].clear();
+
+                                // 设置解决方案
+                                this.currentPuzzle[i][j] = this.solution[i][j];
+
+                                // 更新显示 - 关键：先清理再添加
+                                const notesContainer = cell.querySelector('.notes-container');
+                                if (notesContainer) {
+                                    notesContainer.innerHTML = '';
+                                }
+
+                                // 移除现有的主数字
+                                const existingMainNumbers = cell.querySelectorAll('.main-number');
+                                existingMainNumbers.forEach(el => el.remove());
+
+                                // 添加新的主数字
+                                const mainNumber = document.createElement('div');
+                                mainNumber.className = 'main-number';
+                                mainNumber.textContent = this.solution[i][j];
+                                cell.appendChild(mainNumber);
+
+                                if (this.currentPuzzle[i][j] !== 0 && this.currentPuzzle[i][j] !== this.solution[i][j]) {
+                                    cell.classList.add('error');
+                                } else {
+                                    cell.classList.remove('error');
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 清除高亮
+                this.clearHighlights();
+                this.highlightedNumber = null;
+
+                // 不调用checkWin()，因为求解后不应立即显示You Win
+                this.hideWinMessage();
+                document.getElementById('status').textContent = '数独已解决！';
+            }
+
+            clearUserInput() {
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (this.originalPuzzle[i][j] === 0) {
+                            this.currentPuzzle[i][j] = 0;
+                            this.notes[i][j].clear();
+
+                            const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                            if (cell) {
+                                // **关键修复：清理所有内容**
+                                // 移除主数字
+                                const mainNumbers = cell.querySelectorAll('.main-number');
+                                mainNumbers.forEach(el => el.remove());
+
+                                // 清空笔记容器
+                                const notesContainer = cell.querySelector('.notes-container');
+                                if (notesContainer) {
+                                    notesContainer.innerHTML = '';
+                                }
+
+                                cell.classList.remove('error');
+                            }
+                        }
+                    }
+                }
+
+                if (this.selectedCell) {
+                    const cell = document.querySelector(
+                        `.cell[data-row="${this.selectedCell[0]}"][data-col="${this.selectedCell[1]}"]`
+                    );
+                    if (cell) cell.classList.remove('selected');
+                    this.selectedCell = null;
+                }
+
+                // 清除高亮
+                this.clearHighlights();
+                this.highlightedNumber = null;
+
+                this.isSolved = false; // 重置解决状态
+                this.hideWinMessage();
+                document.getElementById('status').textContent = '已清空用户输入';
+            }
+        }
+
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            new SudokuGame();
+
+            function fixLayout() {
+                const sudokuGrid = document.getElementById('sudokuGrid');
+                if (sudokuGrid) {
+                    sudokuGrid.style.width = '100%';
+                    sudokuGrid.style.height = 'auto';
+                }
+            }
+
+            window.addEventListener('resize', fixLayout);
+            setTimeout(fixLayout, 100);
+        });
+    </script>
+</body>
+</html>
